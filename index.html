@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Fix for "Cannot set property fetch of #<Window> which has only a getter"
+      (function() {
+        try {
+          const originalFetch = window.fetch;
+          if (originalFetch && typeof originalFetch === 'function') {
+            Object.defineProperty(window, 'fetch', {
+              value: originalFetch,
+              writable: true,
+              configurable: true
+            });
+          }
+        } catch (e) {}
+      })();
+
+      // Polyfill global and process
+      if (typeof global === 'undefined') window.global = window;
+      if (typeof process === 'undefined') window.process = { env: {} };
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
