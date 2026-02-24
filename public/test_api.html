@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini API Diagnostic Tool</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.5; }
+        .container { background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background: #2563eb; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #1d4ed8; }
+        pre { background: #1f2937; color: #e5e7eb; padding: 15px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+        .status { margin-top: 10px; font-weight: bold; }
+        .success { color: #059669; }
+        .error { color: #dc2626; }
+    </style>
+</head>
+<body>
+    <h1>Gemini API Diagnostic Tool</h1>
+    <p>Công cụ này giúp kiểm tra kết nối trực tiếp đến Google Gemini API từ trình duyệt của bạn, bỏ qua ứng dụng React.</p>
+    
+    <div class="container">
+        <label for="apiKey">API Key:</label>
+        <input type="password" id="apiKey" placeholder="Nhập Gemini API Key của bạn vào đây">
+        
+        <label for="prompt">Câu hỏi thử nghiệm:</label>
+        <input type="text" id="prompt" value="Chào bạn, hãy giới thiệu ngắn gọn về bản thân.">
+        
+        <button onclick="testConnection()">Kiểm tra Kết nối</button>
+        
+        <div id="status" class="status"></div>
+        
+        <h3>Logs:</h3>
+        <pre id="logs">Chờ tín hiệu...</pre>
+    </div>
+
+    <script>
+        function log(message, data = null) {
+            const logEl = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            let text = `[${timestamp}] ${message}`;
+            if (data) {
+                text += '\n' + JSON.stringify(data, null, 2);
+            }
+            logEl.textContent = text + '\n\n' + logEl.textContent;
+            console.log(message, data);
+        }
+
+        async function testConnection() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const prompt = document.getElementById('prompt').value.trim();
+            const statusEl = document.getElementById('status');
+            
+            if (!apiKey) {
+                alert('Vui lòng nhập API Key');
+                return;
+            }
+
+            statusEl.textContent = 'Đang gửi yêu cầu...';
+            statusEl.className = 'status';
+            
+            // 1. URL Structure
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            
+            // 2. Payload Structure
+            const payload = {
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            };
+
+            log('Cấu hình Request:', {
+                url: url.replace(apiKey, 'HIDDEN_KEY'),
+                method: 'POST',
+                mode: 'cors',
+                credentials: 'omit',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            });
+
+            try {
+                // 3. Fetch Execution
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors',
+                    credentials: 'omit',
+                    body: JSON.stringify(payload)
+                });
+
+                log(`Response Status: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    let errorData;
+                    try {
+                        errorData = await response.json();
+                    } catch (e) {
+                        errorData = { error: { message: 'Không thể đọc JSON lỗi từ server' } };
+                    }
+                    
+                    log('Lỗi từ Server:', errorData);
+                    statusEl.textContent = `Thất bại: ${errorData.error?.message || response.statusText}`;
+                    statusEl.className = 'status error';
+                    return;
+                }
+
+                const data = await response.json();
+                log('Kết quả thành công:', data);
+                
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Không có nội dung trả về';
+                statusEl.textContent = 'Thành công! Xem logs để biết chi tiết.';
+                statusEl.className = 'status success';
+                
+                alert(`Phản hồi từ AI:\n\n${text}`);
+
+            } catch (error) {
+                log('Lỗi Ngoại lệ (Exception):', error);
+                
+                let msg = error.message;
+                if (error instanceof TypeError && msg === 'Failed to fetch') {
+                    msg = 'Lỗi mạng (Network Error) hoặc bị chặn bởi CORS/AdBlock.';
+                }
+                
+                statusEl.textContent = `Lỗi nghiêm trọng: ${msg}`;
+                statusEl.className = 'status error';
+            }
+        }
+
+        // Auto-fill key from localStorage if available (for convenience)
+        const savedKey = localStorage.getItem('gemini_api_key');
+        if (savedKey) {
+            document.getElementById('apiKey').value = savedKey;
+            log('Đã tự động điền API Key từ localStorage');
+        }
+    </script>
+</body>
+</html>

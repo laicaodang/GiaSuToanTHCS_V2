@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini API Ultimate Debugger</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { color: #1a73e8; margin-top: 0; }
+        h2 { font-size: 1.2rem; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; }
+        input[type="text"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; box-sizing: border-box; }
+        textarea { height: 100px; resize: vertical; }
+        
+        button { background: #1a73e8; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; transition: background 0.2s; }
+        button:hover { background: #1557b0; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .status-box { padding: 15px; border-radius: 6px; margin-top: 20px; font-weight: bold; display: none; }
+        .status-box.success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; display: block; }
+        .status-box.error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; display: block; }
+        .status-box.loading { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; display: block; }
+
+        #debug-log { background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 6px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 10px; }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+        .log-time { color: #888; margin-right: 10px; }
+        .log-label { color: #ffcc00; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Gemini API Ultimate Debugger</h1>
+        <p>Công cụ chẩn đoán nâng cao để kiểm tra kết nối API, CORS và Network Blocking.</p>
+        
+        <div class="input-group">
+            <label for="apiKey">API Key (Google AI Studio):</label>
+            <input type="password" id="apiKey" placeholder="Nhập API Key của bạn...">
+        </div>
+
+        <div class="input-group">
+            <label for="modelSelect">Model:</label>
+            <input type="text" id="modelSelect" value="gemini-1.5-flash" placeholder="gemini-1.5-flash">
+        </div>
+        
+        <div class="input-group">
+            <label for="prompt">Prompt (Câu lệnh):</label>
+            <textarea id="prompt">Hello, are you working? Please reply with 'Yes, I am online'.</textarea>
+        </div>
+
+        <button id="btnSend" onclick="runDiagnostics()">🚀 Chạy Chẩn Đoán (Run Diagnostics)</button>
+        
+        <div id="status" class="status-box"></div>
+    </div>
+
+    <div class="card">
+        <h2>Debug Console (Logs)</h2>
+        <div id="debug-log">Waiting for action...</div>
+    </div>
+
+    <script>
+        // Logger function
+        function log(message, type = 'info', data = null) {
+            const logEl = document.getElementById('debug-log');
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+            
+            let html = `<div class="log-entry"><span class="log-time">[${timeStr}]</span> <span class="log-label">${type.toUpperCase()}:</span> ${message}`;
+            
+            if (data) {
+                try {
+                    const json = JSON.stringify(data, null, 2);
+                    html += `<pre style="color: #ccc; margin: 5px 0 0 20px;">${json}</pre>`;
+                } catch (e) {
+                    html += ` [Complex Data]`;
+                }
+            }
+            
+            html += `</div>`;
+            
+            // Append if not initial state
+            if (logEl.innerHTML === 'Waiting for action...') {
+                logEl.innerHTML = html;
+            } else {
+                logEl.innerHTML += html;
+            }
+            
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type}]`, message, data);
+        }
+
+        // Main Diagnostic Function
+        async function runDiagnostics() {
+            const btn = document.getElementById('btnSend');
+            const statusEl = document.getElementById('status');
+            const apiKeyInput = document.getElementById('apiKey');
+            const modelInput = document.getElementById('modelSelect');
+            const promptInput = document.getElementById('prompt');
+
+            // Reset UI
+            btn.disabled = true;
+            statusEl.className = 'status-box loading';
+            statusEl.textContent = 'Đang chạy chẩn đoán...';
+            document.getElementById('debug-log').innerHTML = ''; // Clear logs
+
+            try {
+                // Step 1: Check Inputs
+                log('Step 1: Checking Configuration...');
+                const apiKey = apiKeyInput.value.trim();
+                const model = modelInput.value.trim();
+                const prompt = promptInput.value.trim();
+
+                if (!apiKey) {
+                    throw new Error("API Key bị thiếu. Vui lòng nhập key.");
+                }
+                log('API Key loaded (Hidden for security)');
+                
+                // Save to localStorage for convenience
+                localStorage.setItem('gemini_api_key', apiKey);
+                log('API Key saved to localStorage');
+
+                // Step 2: Prepare Payload
+                log('Step 2: Preparing Payload...');
+                // Use v1 stable endpoint
+                const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }]
+                };
+                
+                log('Endpoint URL:', 'info', url.replace(apiKey, 'HIDDEN_KEY'));
+                log('Request Body:', 'info', payload);
+
+                // Step 3: Execute Fetch
+                log('Step 3: Sending Request (Direct Fetch)...');
+                
+                const startTime = performance.now();
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload),
+                    referrerPolicy: "no-referrer", // Hide origin to prevent some CORS/Referer blocks
+                    credentials: 'omit' // Don't send cookies
+                });
+
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(2);
+                log(`Request completed in ${duration}ms`);
+                log(`HTTP Status: ${response.status} ${response.statusText}`);
+
+                // Step 4: Handle Response
+                log('Step 4: Parsing Response...');
+                
+                if (!response.ok) {
+                    let errorBody;
+                    try {
+                        errorBody = await response.json();
+                    } catch (e) {
+                        errorBody = await response.text();
+                    }
+                    
+                    log('Error Response Body:', 'error', errorBody);
+                    
+                    let errorMsg = `HTTP Error ${response.status}`;
+                    if (typeof errorBody === 'object' && errorBody.error && errorBody.error.message) {
+                        errorMsg = errorBody.error.message;
+                    } else if (typeof errorBody === 'string') {
+                        errorMsg = errorBody;
+                    }
+
+                    throw new Error(`Google API Error: ${errorMsg}`);
+                }
+
+                const data = await response.json();
+                log('Response Data:', 'success', data);
+
+                // Step 5: Extract Content
+                log('Step 5: Extracting Content...');
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (text) {
+                    statusEl.className = 'status-box success';
+                    statusEl.innerHTML = `<strong>Thành công!</strong><br>AI Reply: ${text}`;
+                    log('Final Result: Success');
+                } else {
+                    log('Warning: No text found in response candidates', 'warn');
+                    statusEl.className = 'status-box success';
+                    statusEl.textContent = 'Kết nối thành công nhưng không có nội dung trả về (Check logs).';
+                }
+
+            } catch (error) {
+                log('EXCEPTION CAUGHT:', 'error', error);
+                
+                let userMsg = error.message;
+                
+                if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+                    log('Diagnosis: Network/CORS Block detected.');
+                    userMsg = 'Lỗi kết nối mạng hoặc bị Trình duyệt chặn (CORS/VPN). Vui lòng kiểm tra kết nối mạng hoặc thử tắt VPN/AdBlock.';
+                }
+
+                statusEl.className = 'status-box error';
+                statusEl.textContent = `Thất bại: ${userMsg}`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Load key on start
+        window.onload = () => {
+            const savedKey = localStorage.getItem('gemini_api_key');
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+                log('Auto-loaded API Key from localStorage');
+            }
+        };
+    </script>
+</body>
+</html>
